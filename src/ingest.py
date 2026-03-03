@@ -2,7 +2,6 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -11,9 +10,25 @@ from langchain_core.documents import Document
 load_dotenv()
 
 # Verifica as variáveis de ambiente necessárias para a execução do script.
-for k in ("OPENAI_API_KEY", "PGVECTOR_URL","PGVECTOR_COLLECTION"):
+llm = os.getenv("LLM_PROVIDER", "openai").lower()
+variaveis_obrigatorias = ["PGVECTOR_URL", "PGVECTOR_COLLECTION"]
+variaveis_obrigatorias += ["OPENAI_API_KEY"] if llm == "openai" else ["GOOGLE_API_KEY"]
+for k in variaveis_obrigatorias:
     if not os.getenv(k):
         raise RuntimeError(f"A variável ambiente {k} não está definida no .env")
+
+# Retorna o modelo de embeddings conforme o provedor definido em LLM_PROVIDER.
+def get_embeddings():
+    if llm == "google":
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        model = os.getenv("GOOGLE_EMBEDDING_MODEL", "models/gemini-embedding-001")
+        
+        return GoogleGenerativeAIEmbeddings(model=model)
+    else:
+        from langchain_openai import OpenAIEmbeddings
+        model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+        
+        return OpenAIEmbeddings(model=model)
 
 diretorio_atul = Path(__file__).parent
 pdf_caminho = diretorio_atul / "../document.pdf"
@@ -47,8 +62,8 @@ for d in chunks_pdf:
 #    print("="*80)
 #    print("\n")
 
-# Obtém o modelo de embeddings da OpenAI.
-embeddings = OpenAIEmbeddings(model=os.getenv("OPENAI_EMBEDDING_MODEL","text-embedding-3-small"))
+# Obtém o modelo de embeddings conforme o provedor definido em LLM_PROVIDER.
+embeddings = get_embeddings()
 
 # Realiza o armazenamento dos embeddings no PostgreSQL utilizando a extensão PGVector.
 gravacao_vetores = PGVector(
@@ -62,3 +77,4 @@ gravacao_vetores = PGVector(
 ids = [f"documento-{i}" for i in range(len(enriquecido))]
 
 gravacao_vetores.add_documents(documents=enriquecido, ids=ids)
+
