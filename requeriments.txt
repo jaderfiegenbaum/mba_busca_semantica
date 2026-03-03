@@ -1,0 +1,8 @@
+python-dotenv
+langchain-openai
+langchain-postgres
+langchain-community
+langchain-text-splitters
+langchain-core
+pypdf
+psycopg[binary]
